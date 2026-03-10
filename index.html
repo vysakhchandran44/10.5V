@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#102f5b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="GS1 Vault Pro">
+  <title>GS1 Vault Pro</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Offline GS1 / In-house Barcode PWA</p>
+        <h1>GS1 Vault Pro</h1>
+        <p class="subtle">Company barcode and GTIN stay separate. No fake certainty, no barcode goblinry.</p>
+      </div>
+      <div class="header-actions">
+        <button id="installBtn" class="secondary" hidden>Install App</button>
+        <button id="backupBtn" class="secondary">Backup JSON</button>
+        <label class="file-btn secondary">Restore JSON<input id="restoreInput" type="file" accept="application/json"></label>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="card hero-card">
+        <div class="hero-row">
+          <div>
+            <span class="pill success">100% local data</span>
+            <span class="pill">Barcode ≠ GTIN</span>
+            <span class="pill">85% fuzzy review</span>
+          </div>
+          <div class="statusline" id="storageStatus">Storage ready</div>
+        </div>
+        <div class="hero-grid">
+          <div class="metric"><span>Total scans</span><strong id="metricScans">0</strong></div>
+          <div class="metric"><span>Master products</span><strong id="metricProducts">0</strong></div>
+          <div class="metric"><span>Fuzzy suggestions</span><strong id="metricFuzzy">0</strong></div>
+          <div class="metric"><span>Ambiguous matches</span><strong id="metricAmbiguous">0</strong></div>
+        </div>
+      </section>
+
+      <section class="card scanner-card">
+        <div class="section-head">
+          <h2>Barcode Scanning</h2>
+          <div class="inline-actions">
+            <button id="startScanBtn">Start Camera</button>
+            <button id="stopScanBtn" class="secondary">Stop</button>
+            <label class="file-btn secondary">Scan Image<input id="imageScanInput" type="file" accept="image/*"></label>
+          </div>
+        </div>
+        <div class="scanner-wrap">
+          <div id="reader"></div>
+          <div class="scan-panel">
+            <label>Manual / raw barcode input</label>
+            <textarea id="manualInput" rows="4" placeholder="Paste raw GS1 string, GTIN, company barcode, QR payload, or even a product description for 85% fuzzy review."></textarea>
+            <div class="inline-actions">
+              <button id="parseManualBtn">Parse & Save</button>
+              <button id="clearManualBtn" class="secondary">Clear</button>
+            </div>
+            <p class="tiny">Rule: exact company barcode first. If a 13/14-digit code is not found as company barcode, treat it as GTIN. Never merge barcode and GTIN just because the digits look cute together.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card result-card">
+        <div class="section-head">
+          <h2>Latest Parsed Result</h2>
+          <button id="copyLatestBtn" class="secondary">Copy Summary</button>
+        </div>
+        <div id="latestResult" class="result-empty">No scan yet.</div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Master Data + In-house Database</h2>
+          <div class="inline-actions">
+            <label class="file-btn secondary">Upload CSV / TSV<input id="masterFileInput" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"></label>
+            <button id="downloadTemplateBtn" class="secondary">Download Template</button>
+          </div>
+        </div>
+        <div class="split-grid">
+          <div>
+            <h3>Add / update single product</h3>
+            <div class="form-grid">
+              <label>Company Barcode<input id="formBarcode" type="text" placeholder="company barcode"></label>
+              <label>GTIN<input id="formGtin" type="text" placeholder="13/14 digit GTIN"></label>
+              <label>RMS Code<input id="formRms" type="text" placeholder="220236078"></label>
+              <label>Description<input id="formDesc" type="text" placeholder="PANADOL ADVANCE 24S"></label>
+              <label>Brand<input id="formBrand" type="text" placeholder="PANADOL"></label>
+              <label>Supplier<input id="formSupplier" type="text" placeholder="supplier"></label>
+              <label>Return Policy<input id="formPolicy" type="text" placeholder="NO RETURN / NO REPLACEMENT"></label>
+              <label>Notes / Extra Status<input id="formNotes" type="text" placeholder="rerun status / remarks / notes"></label>
+            </div>
+            <div class="inline-actions top-gap">
+              <button id="saveProductBtn">Save Product</button>
+              <button id="clearProductBtn" class="secondary">Reset</button>
+            </div>
+          </div>
+          <div>
+            <h3>Expected columns</h3>
+            <div class="codebox mono small">BARCODE, GTIN, RMS_CODE, DESCRIPTION, BRAND, SUPPLIER_NAME, RETURN_POLICY, RETURNABLE, ALSHAYA_CODE, NOTES</div>
+            <p class="tiny">Extra columns are preserved inside each product record. Missing values stay blank. The app never assumes a company barcode and GTIN are the same unless they are both explicitly stored on the same product row.</p>
+          </div>
+        </div>
+        <div class="table-tools">
+          <input id="productSearch" type="search" placeholder="Search master products">
+          <button id="exportMasterBtn" class="secondary">Export Master TSV</button>
+          <button id="wipeMasterBtn" class="danger">Wipe Master DB</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Company Barcode</th>
+                <th>GTIN</th>
+                <th>RMS</th>
+                <th>Description</th>
+                <th>Brand</th>
+                <th>Supplier</th>
+                <th>Policy</th>
+              </tr>
+            </thead>
+            <tbody id="productTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Scan History</h2>
+          <div class="inline-actions">
+            <select id="historyStatusFilter">
+              <option value="all">All expiry states</option>
+              <option value="expired">Expired</option>
+              <option value="soon">Soon</option>
+              <option value="ok">OK</option>
+              <option value="none">No expiry</option>
+            </select>
+            <select id="historySort">
+              <option value="recent">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="expiry">Expiry date</option>
+            </select>
+            <button id="exportCsvBtn" class="secondary">Export CSV</button>
+            <button id="exportTsvBtn" class="secondary">Export TSV</button>
+            <button id="wipeHistoryBtn" class="danger">Wipe History</button>
+          </div>
+        </div>
+        <div class="table-tools">
+          <input id="historySearch" type="search" placeholder="Search history by barcode, GTIN, batch, serial, product, raw text">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Scanned</th>
+                <th>Input</th>
+                <th>Company Barcode</th>
+                <th>GTIN</th>
+                <th>Description</th>
+                <th>Expiry</th>
+                <th>Status</th>
+                <th>Batch</th>
+                <th>Qty</th>
+                <th>Match</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="resultTemplate">
+    <div class="result-grid">
+      <div class="codebox mono" id="rawValue"></div>
+      <div class="result-fields">
+        <div><span>Company Barcode</span><strong id="resBarcode"></strong></div>
+        <div><span>GTIN</span><strong id="resGtin"></strong></div>
+        <div><span>Expiry</span><strong id="resExpiry"></strong></div>
+        <div><span>Batch / Lot</span><strong id="resBatch"></strong></div>
+        <div><span>Serial</span><strong id="resSerial"></strong></div>
+        <div><span>Quantity</span><strong id="resQty"></strong></div>
+        <div><span>Format</span><strong id="resFormat"></strong></div>
+        <div><span>RMS</span><strong id="resRms"></strong></div>
+        <div><span>Brand</span><strong id="resBrand"></strong></div>
+      </div>
+      <div class="match-box" id="matchBox"></div>
+    </div>
+  </template>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
