@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#102f5b">
+  <meta name="theme-color" content="#1A6B5A">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="GS1 Vault Pro">
@@ -11,13 +11,13 @@
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar">
+    <header class="topbar card">
       <div>
         <p class="eyebrow">Offline GS1 / In-house Barcode PWA</p>
         <h1>GS1 Vault Pro</h1>
@@ -30,7 +30,12 @@
       </div>
     </header>
 
-    <main class="grid">
+    <nav class="mobile-nav card" aria-label="Main sections">
+      <button class="tab-btn active" data-tab="homeTab">Home</button>
+      <button class="tab-btn" data-tab="dataTab">Master & Settings</button>
+    </nav>
+
+    <main class="grid" id="homeTab">
       <section class="card hero-card">
         <div class="hero-row">
           <div>
@@ -78,7 +83,9 @@
         </div>
         <div id="latestResult" class="result-empty">No scan yet.</div>
       </section>
+    </main>
 
+    <main class="grid tab-panel hidden" id="dataTab">
       <section class="card">
         <div class="section-head">
           <h2>Master Data + In-house Database</h2>
@@ -200,5 +207,16 @@
   </template>
 
   <script src="js/app.js"></script>
+  <script>
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanels = document.querySelectorAll('.tab-panel, #homeTab');
+    tabButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        tabButtons.forEach((b) => b.classList.toggle('active', b === btn));
+        tabPanels.forEach((panel) => panel.classList.toggle('hidden', panel.id !== target));
+      });
+    });
+  </script>
 </body>
 </html>
