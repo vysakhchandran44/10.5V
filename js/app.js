@@ -71,6 +71,19 @@ function uid(prefix='id') {
 }
 
 function normalizeDigits(v) { return String(v || '').replace(/\D+/g, ''); }
+function normalizeGTIN(digits) {
+  const clean = normalizeDigits(digits);
+  if (clean.length === 13) return `0${clean}`;
+  return clean;
+}
+function gtinVariants(digits) {
+  const clean = normalizeDigits(digits);
+  if (!clean) return [];
+  const variants = new Set([clean]);
+  if (clean.length === 13) variants.add(`0${clean}`);
+  if (clean.length === 14 && clean.startsWith('0')) variants.add(clean.slice(1));
+  return [...variants];
+}
 function normalizeText(v) {
   return String(v || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -162,7 +175,7 @@ function productFromRow(row) {
   const conceptKey = findKey(row, ['CONCEPT GROUP', 'CONCEPT_GROUP']);
 
   const barcode = normalizeDigits(row[barcodeKey]);
-  const gtin = normalizeDigits(row[gtinKey]);
+  const gtin = normalizeGTIN(row[gtinKey]);
   const description = String(row[descKey] || '').trim().toUpperCase();
   const extras = {};
   Object.entries(row).forEach(([k, v]) => {
@@ -200,11 +213,26 @@ function rebuildIndexes() {
     attachRefs(p);
     if (p.barcode) state.indexes.byBarcode.set(p.barcode, p);
     if (p.gtin) {
-      state.indexes.byGTIN.set(p.gtin, p);
+      gtinVariants(p.gtin).forEach(g => state.indexes.byGTIN.set(g, p));
       if (p.last8) (state.indexes.byLast8.get(p.last8) || state.indexes.byLast8.set(p.last8, []).get(p.last8)).push(p);
       if (p.seq6) (state.indexes.bySeq6.get(p.seq6) || state.indexes.bySeq6.set(p.seq6, []).get(p.seq6)).push(p);
     }
   }
+}
+
+function readVariableValue(code, start) {
+  const GS = String.fromCharCode(29);
+  const knownAIs = ['01', '10', '17', '21', '30', '37', '240', '241', '250', '251', '7003'];
+  let i = start;
+  while (i < code.length) {
+    if (code[i] === GS) break;
+    const next4 = code.slice(i, i + 4);
+    const next3 = code.slice(i, i + 3);
+    const next2 = code.slice(i, i + 2);
+    if (knownAIs.includes(next4) || knownAIs.includes(next3) || knownAIs.includes(next2)) break;
+    i++;
+  }
+  return { value: code.slice(start, i), next: i };
 }
 
 async function seedIfNeeded() {
@@ -264,7 +292,7 @@ function parseGS1(raw) {
   const hri = code.includes('(01)') || code.includes('(17)') || code.includes('(10)');
   if (hri) {
     result.isGS1 = true; result.format = 'GS1-HRI';
-    const g = code.match(/\(01\)(\d{14})/); if (g) result.gtin = g[1];
+    const g = code.match(/\(01\)(\d{13,14})/); if (g) result.gtin = normalizeGTIN(g[1]);
     const e = code.match(/\(17\)(\d{6})/); if (e) result.expiry = gs1Date(e[1]);
     const b = code.match(/\(10\)([^\(\u001d]+)/); if (b) result.batch = b[1].trim();
     const s = code.match(/\(21\)([^\(\u001d]+)/); if (s) result.serial = s[1].trim();
@@ -284,10 +312,10 @@ function parseGS1(raw) {
       else if (['240','241','250','251'].includes(ai3)) ai = ai3;
       else ai = ai2;
       i += ai.length;
-      if (ai === '01') { result.gtin = clean.slice(i, i+14); i += 14; }
+      if (ai === '01') { result.gtin = normalizeGTIN(clean.slice(i, i+14)); i += 14; }
       else if (ai === '17') { result.expiry = gs1Date(clean.slice(i, i+6)); i += 6; }
-      else if (ai === '10') { const start=i; while (i<clean.length && clean[i] !== String.fromCharCode(29)) i++; result.batch = clean.slice(start,i); }
-      else if (ai === '21') { const start=i; while (i<clean.length && clean[i] !== String.fromCharCode(29)) i++; result.serial = clean.slice(start,i); }
+      else if (ai === '10') { const val = readVariableValue(clean, i); result.batch = val.value; i = val.next; }
+      else if (ai === '21') { const val = readVariableValue(clean, i); result.serial = val.value; i = val.next; }
       else if (ai === '30' || ai === '37') { const start=i; while (i<clean.length && /\d/.test(clean[i])) i++; result.quantity = clean.slice(start,i); }
       else if (ai === '7003') { i += 10; }
       else { break; }
@@ -490,7 +518,7 @@ async function saveFormProduct() {
   const product = attachRefs({
     id: uid('prd'),
     barcode: normalizeDigits($('#formBarcode').value),
-    gtin: normalizeDigits($('#formGtin').value),
+    gtin: normalizeGTIN($('#formGtin').value),
     rmsCode: $('#formRms').value.trim(),
     description: $('#formDesc').value.trim().toUpperCase(),
     brand: $('#formBrand').value.trim(),
