@@ -645,7 +645,15 @@ async function init() {
   $('#storageStatus').textContent = `IndexedDB ready · ${state.products.length} products loaded`;
 
   $('#parseManualBtn').addEventListener('click', async () => {
-    const v = $('#manualInput').value.trim(); if (!v) return; await handleInput(v);
+    const v = $('#manualInput').value.trim();
+    if (!v) return;
+    const lines = v.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const entries = lines.length > 1 ? lines : [v];
+    const limitedEntries = entries.slice(0, 1000);
+    for (const entry of limitedEntries) await handleInput(entry);
+    if (entries.length > 1000) {
+      alert(`Only the first 1000 entries were processed. ${entries.length - 1000} extra line(s) were skipped.`);
+    }
   });
   $('#clearManualBtn').addEventListener('click', () => $('#manualInput').value = '');
   $('#copyLatestBtn').addEventListener('click', copyLatest);

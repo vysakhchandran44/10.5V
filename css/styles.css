@@ -51,6 +51,7 @@ input[type="search"], input[type="text"], textarea, select {
   padding: 11px 13px; color: var(--text);
 }
 textarea { resize: vertical; min-height: 110px; }
+#manualInput { min-height: 360px; font-family: "JetBrains Mono", monospace; }
 label { display: grid; gap: 8px; font-size: 14px; color: #3a5468; }
 
 .app-shell { max-width: 1420px; margin: 0 auto; padding: 14px; }
